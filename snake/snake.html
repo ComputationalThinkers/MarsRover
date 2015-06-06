@@ -1,0 +1,375 @@
+<!doctype html>
+<html>
+	<head>
+		<title>
+			Snake
+		</title>
+		<style type="text/css">
+			* {
+				background: 	black;
+
+				color: 		white;
+				font-family: 	Calibri;
+				font-size: 	15px;
+			}
+
+			canvas {
+				border: 	1px solid white;
+			}		
+		</style>
+		<script type="text/javascript">
+			// canvas and context
+			var canvas = null;
+			var ctx = null;
+
+			// window variable
+			var width = 0;
+			var height = 0;
+
+			// game variable
+			var snakeSize = 10;
+			var snakeLength = 3;
+			var snakeScore = 0;
+
+			var gameRequireRestart = new Boolean();
+
+			// game timer variable
+			var level = 0;
+			var MAX_LEVEL = 10;			
+
+			var countdown = 500;
+			var COUNTDOWN_UNIT = 50;
+			var DEFAULT_COUNTDOWN = 500;
+
+			var timer = null;
+
+			// snake variable
+			var heading = 6;
+			var HEADING_UP = 2;
+			var HEADING_RIGHT = 6;
+			var HEADING_DOWN = 9;
+			var HEADING_LEFT = 4;
+
+			var snakeLocation = null;
+			var oldSnakeLocation = null;
+			var snakeMoved = new Boolean();
+
+			var snakeFood = null;
+
+			function init() {
+				canvas = document.getElementById('snakeCanvas');
+
+				var canvasWidth = window.innerWidth;
+				var canvasHeight = window.innerHeight;
+
+				canvasWidth -= 30;
+				canvasHeight -= 110;
+
+				canvasWidth -= canvasWidth % snakeSize;
+				canvasHeight -= canvasHeight % snakeSize;
+
+				canvas.width = canvasWidth;
+				canvas.height = canvasHeight;
+
+				width = canvas.width;
+				height = canvas.height;
+
+				snakeLocation = new Array(snakeLength);
+
+				for (var i = 0; i < snakeLength; i++) {
+					snakeLocation[i] = new Array(2);
+					if (i == 0) {
+						snakeLocation[i][0] = (snakeLength - 2) * snakeSize;
+						snakeLocation[i][1] = Math.floor((height - snakeSize) / 2);
+					} else {
+						snakeLocation[i][0] = snakeLocation[i-1][0] - snakeSize;
+						snakeLocation[i][1] = snakeLocation[i-1][1];
+					}
+
+					snakeLocation[i][0] -= snakeLocation[i][0] % snakeSize;
+					snakeLocation[i][1] -= snakeLocation[i][1] % snakeSize;
+				}
+
+				if (canvas.getContext) {
+					ctx = canvas.getContext('2d');
+
+					generateFood();
+					drawFood();
+
+					draw();
+				}
+			}
+
+			function generateFood() {
+				snakeFood = new Array(2);
+				snakeFood[0] = Math.floor(Math.random() * width);
+				snakeFood[1] = Math.floor(Math.random() * height);
+
+				snakeFood[0] -= snakeFood[0] % snakeSize;
+				snakeFood[1] -= snakeFood[1] % snakeSize;
+
+				checkIfFoodOverlapSnake();
+			}
+
+			function checkIfFoodOverlapSnake() {
+				var overlap = new Boolean();
+				overlap = false;
+
+				if (oldSnakeLocation != null) {
+					for (var i = 0; i < snakeLength; i++) {
+						if (oldSnakeLocation[i] != null) {
+							if (snakeFood[0] == oldSnakeLocation[i][0]
+								&& snakeFood[1] == oldSnakeLocation[i][1]) {
+								overlap = true;
+							}
+						}
+					}
+				}
+
+				if (overlap) {
+					generateFood();
+				}
+			}
+
+			function drawFood() {
+				ctx.fillStyle = "rgb(0,0,255)";
+				ctx.fillRect(snakeFood[0], snakeFood[1], snakeSize, snakeSize);
+			}
+
+			function draw() {
+					clearRect();
+					calculateLocation();
+					drawRect();
+					startTimer();
+					if (gameRequireRestart) {
+						gameRequireRestart = false;
+						restartGame();
+					}
+			}
+
+			function clearRect() {
+				for (var i = 0; i < snakeLength; i++) {
+					ctx.clearRect(snakeLocation[i][0], snakeLocation[i][1], snakeSize, snakeSize);
+				}
+			}
+
+			function calculateLocation() {
+				oldSnakeLocation = snakeLocation;
+				snakeLocation = new Array(snakeLength);
+
+				snakeLocation[0] = new Array(2);
+				snakeLocation[0][0] = oldSnakeLocation[0][0];
+				snakeLocation[0][1] = oldSnakeLocation[0][1];
+
+				if (heading == HEADING_UP) {
+					snakeLocation[0][1] = snakeLocation[0][1] - snakeSize;
+				} else if (heading == HEADING_RIGHT) {
+					snakeLocation[0][0] = snakeLocation[0][0] + snakeSize;
+				} else if (heading == HEADING_DOWN) {
+					snakeLocation[0][1] = snakeLocation[0][1] + snakeSize;
+				} else if (heading == HEADING_LEFT) {
+					snakeLocation[0][0] = snakeLocation[0][0] - snakeSize;
+				}
+
+				detectIfCollideWithSnake();
+				detectIfReachedFood();
+
+				for (var i = 1; i < snakeLength; i++) {
+					snakeLocation[i] = oldSnakeLocation[i-1];
+				}
+
+				// filter out of bound
+				for (var i = 0; i < snakeLength; i++) {
+					if (snakeLocation[i][0] + snakeSize > width) {
+						snakeLocation[i][0] = 0;
+					}
+					if (snakeLocation[i][0] < 0) {
+						snakeLocation[i][0] = width - snakeSize;
+						/* to compensate for the size of the rectangle
+						if set to width, it will be not in the canvas, but outside */
+					}
+
+					if (snakeLocation[i][1] + snakeSize > height ) {
+						snakeLocation[i][1] = 0;
+					}
+					if (snakeLocation[i][1] < 0) {
+						snakeLocation[i][1] = height - snakeSize;
+					}
+				}
+
+				snakeMoved = true;
+			}
+
+			function detectIfCollideWithSnake() {
+				for (var i = 1; i < snakeLength; i++) {
+					if (snakeLocation[0][0] == oldSnakeLocation[i][0]
+						&& snakeLocation[0][1] == oldSnakeLocation[i][1]) {
+						gameRequireRestart = true;
+					}
+				}
+			}
+
+			function detectIfReachedFood() {
+				if (snakeLocation[0][0] == snakeFood[0]
+					&& snakeLocation[0][1] == snakeFood[1]) {
+					snakeLength++;
+					snakeScore += level + 1;
+					updateGameScore();
+
+					generateFood();
+					drawFood();
+				}
+			}
+
+			function updateGameScore() {
+				document.getElementById('score').innerHTML = snakeScore;
+			}
+
+			function drawRect() {
+				ctx.fillStyle = "rgb(255,0,0)";
+				for (var i = 0; i < snakeLength; i++) {
+					ctx.fillRect(snakeLocation[i][0], snakeLocation[i][1], snakeSize, snakeSize);
+				}
+			}
+
+			function startTimer() {
+				timer = setTimeout("draw()", countdown);
+			}
+
+			function restartGame() {
+				clearGameStatus();
+				init();
+			}
+
+			function clearGameStatus() {
+				clearTimeout(timer);
+
+				snakeLength = 3;
+				snakeScore = 0;
+				updateGameScore();
+				heading = 6;
+
+				level = 0;
+				updateGameLevel();
+
+				snakeLocation = null;
+				oldSnakeLocation = null;
+			}
+
+			function keyPressed(e) {
+				var key = e.keyCode;
+				if (key == 38 || key == 87) {
+					// up or W
+					changeDirection(HEADING_UP);
+				} else if (key == 39 || key == 68) {
+					// right or D
+					changeDirection(HEADING_RIGHT);
+				} else if (key == 40 || key == 83) {
+					// down or S
+					changeDirection(HEADING_DOWN);
+				} else if (key == 37 || key == 65) {
+					// left or A
+					changeDirection(HEADING_LEFT);
+				} else if (key == 82) {
+					// [R]estart
+					requestRestartGame();
+				} else if (key == 189) {
+					// -
+					decreaseGameSpeed();
+				} else if (key == 187) {
+					// +
+					increaseGameSpeed();
+				} else {
+
+				}
+			}
+
+			function changeDirection(newHeading) {
+				if (snakeMoved) {
+					if (newHeading == HEADING_UP) {
+						if (heading != HEADING_DOWN) {
+							heading = HEADING_UP;
+						}
+					} else if (newHeading == HEADING_RIGHT) {
+						if (heading != HEADING_LEFT) {
+							heading = HEADING_RIGHT;
+						}
+					} else if (newHeading == HEADING_DOWN) {
+						if (heading != HEADING_UP) {
+							heading = HEADING_DOWN;
+						}
+					} else if (newHeading == HEADING_LEFT) {
+						if (heading != HEADING_RIGHT) {
+							heading = HEADING_LEFT;
+						}
+					}
+					snakeMoved = false;
+				}
+			}
+
+			function increaseGameSpeed() {
+				// level 0 (500ms) ~ 9 (50ms)
+				if (level < MAX_LEVEL - 1) {
+					level++;
+				}
+				updateGameLevel();
+			}
+
+			function decreaseGameSpeed() {
+				if (level > 0) {
+					level--;
+				}
+				updateGameLevel();
+			}
+
+			function updateGameLevel() {
+				countdown = DEFAULT_COUNTDOWN - (level * COUNTDOWN_UNIT);
+				document.getElementById('level').innerHTML = level + 1;
+			}
+
+			function requestRestartGame() {
+				gameRequireRestart = true;
+			}
+		</script>
+	</head>
+	<header>
+		<table>
+			<tr>
+				<td>
+					<button onclick="requestRestartGame();">
+						Restart
+					</button>
+				</td>
+				<td>
+					|
+				</td>
+				<td>
+					Level:
+				</td>
+				<td id="level">
+					1
+				</td>
+				<td>
+					|
+				</td>
+				<td>
+					Score:
+				</td>
+				<td id="score">
+					0
+				</td>
+			</tr>
+		</table>
+	</header>
+	<body onload="init();" onkeyup="keyPressed(event)">
+		<canvas id="snakeCanvas">
+			
+		</canvas>
+	</body>
+	<footer>
+		<p>
+			&copy Chua Jie Sheng | chuajiesheng@gmail.com
+		</p>
+	</footer>
+</html>
+ 

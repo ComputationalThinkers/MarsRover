@@ -1,0 +1,10 @@
+* {
+	background: 	black;
+	color: 			white;
+	font-family: 	Calibri;
+	font-size: 		15px;
+}
+
+canvas {
+	border: 		1px solid white;
+}		
